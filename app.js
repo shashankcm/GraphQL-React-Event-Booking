@@ -5,12 +5,12 @@ const { buildSchema } = require("graphql");
 const mongoose = require("mongoose");
 
 const config = require("./DB");
+const Event = require("./models/event");
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-const events = [];
 app.use(
   "/graphql",
   graphqlHttp({
@@ -45,18 +45,32 @@ app.use(
     `),
     rootValue: {
       events: () => {
-        return events;
+        return Event.find()
+          .then(events => {
+            return events.map(event => {
+              return { ...event._doc }; //incase of _id throws exception use this beside._doc "_id" event._doc._id.toString() or event.id (no underscore)
+            });
+          })
+          .catch(err => {
+            throw err;
+          });
       },
       createEvent: args => {
-        const event = {
-          _id: Math.random().toString(),
+        const event = new Event({
           title: args.eventInput.title,
           description: args.eventInput.description,
           price: +args.eventInput.price,
-          date: args.eventInput.date
-        };
-        events.push(event);
-        return event;
+          date: new Date(args.eventInput.date)
+        });
+        return event
+          .save()
+          .then(result => {
+            return { ...result._doc }; //incase of _id throws exception use this beside._doc "_id" result._doc._id.toString() or event.id (no underscore)
+          })
+          .catch(err => {
+            console.log(err);
+            throw err;
+          });
       }
     },
     graphiql: true
